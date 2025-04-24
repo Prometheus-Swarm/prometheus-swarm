@@ -39,6 +39,13 @@ prometheus_swarm/tools/github_operations/templates_legacy.py
 prometheus_swarm/tools/planner_operations/__init__.py
 prometheus_swarm/tools/planner_operations/definitions.py
 prometheus_swarm/tools/planner_operations/implementations.py
+prometheus_swarm/tools/repo_operations/Types.py
+prometheus_swarm/tools/repo_operations/__init__.py
+prometheus_swarm/tools/repo_operations/definitions.py
+prometheus_swarm/tools/repo_operations/implementations.py
+prometheus_swarm/tools/summarizer_operations/__init__.py
+prometheus_swarm/tools/summarizer_operations/definitions.py
+prometheus_swarm/tools/summarizer_operations/implementations.py
 prometheus_swarm/utils/__init__.py
 prometheus_swarm/utils/distribution.py
 prometheus_swarm/utils/errors.py

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: prometheus-swarm
-Version: 0.1.1
+Version: 0.1.2
 Summary: A framework for building AI agents
-Author: Your Name
+Author: Laura Abro
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -11,27 +11,26 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
-Requires-Dist: openai>=1.0.0
-Requires-Dist: python-dotenv>=0.19.0
-Requires-Dist: pydantic>=2.0.0
-Requires-Dist: sqlalchemy>=2.0.0
-Requires-Dist: pytest>=7.0.0
-Requires-Dist: requests>=2.0.0
-Requires-Dist: python-jose>=3.0.0
-Requires-Dist: passlib>=1.7.0
-Requires-Dist: python-multipart>=0.0.5
-Requires-Dist: bcrypt>=3.2.0
-Requires-Dist: aiohttp>=3.8.0
-Requires-Dist: fastapi>=0.68.0
-Requires-Dist: uvicorn>=0.15.0
-Requires-Dist: pytest-asyncio>=0.18.0
-Requires-Dist: httpx>=0.24.0
-Requires-Dist: pytest-cov>=3.0.0
-Requires-Dist: alembic>=1.7.0
-Requires-Dist: psycopg2-binary>=2.9.0
-Requires-Dist: redis>=4.0.0
-Requires-Dist: celery>=5.2.0
-Requires-Dist: flower>=1.0.0
+Requires-Dist: anthropic>=0.8.1
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: tiktoken>=0.5.2
+Requires-Dist: pytest>=8.0.2
+Requires-Dist: typing-extensions>=4.12.2
+Requires-Dist: GitPython>=3.1.44
+Requires-Dist: pygithub>=2.5.0
+Requires-Dist: Flask>=3.0.0
+Requires-Dist: requests>=2.32.0
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: gunicorn>=22.0.0
+Requires-Dist: solders>=0.26.0
+Requires-Dist: base58>=2.1.0
+Requires-Dist: tenacity>=9.0.0
+Requires-Dist: sqlmodel>=0.0.22
+Requires-Dist: openai>=0.28.0
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: pymongo>=4.11.0
+Requires-Dist: PyNaCl>=1.5.0
 Dynamic: author
 Dynamic: classifier
 Dynamic: requires-dist
