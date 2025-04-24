@@ -2,6 +2,7 @@
 .env
 __pycache__
 .pytest_cache
+.pypirc
 *.db
 test
 test_state.json

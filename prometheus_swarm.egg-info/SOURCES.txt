@@ -20,10 +20,6 @@ prometheus_swarm/database/__init__.py
 prometheus_swarm/database/config.py
 prometheus_swarm/database/database.py
 prometheus_swarm/database/models.py
-prometheus_swarm/old/__init__.py
-prometheus_swarm/old/analyze_test_failure.py
-prometheus_swarm/old/fix_test_failures.py
-prometheus_swarm/old/test_parser.py
 prometheus_swarm/tools/__init__.py
 prometheus_swarm/tools/execute_command/__init__.py
 prometheus_swarm/tools/execute_command/definitions.py
@@ -52,4 +48,3 @@ prometheus_swarm/utils/signatures.py
 prometheus_swarm/workflows/__init__.py
 prometheus_swarm/workflows/base.py
 prometheus_swarm/workflows/utils.py
-tests/test_retry_utils.py
