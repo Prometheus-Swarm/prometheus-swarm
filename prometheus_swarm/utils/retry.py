@@ -45,6 +45,9 @@ def with_retry(
             reraise=True,
         )
         def wrapper(*args, **kwargs):
+            # If this is a retry attempt (not the first attempt), set is_retry=True
+            if wrapper.retry.statistics.get("attempt_number", 0) > 0:
+                kwargs["is_retry"] = True
             return func(*args, **kwargs)
 
         return wrapper
