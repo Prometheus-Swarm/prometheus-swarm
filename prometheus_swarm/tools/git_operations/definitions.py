@@ -104,6 +104,7 @@ DEFINITIONS = {
             "type": "object",
             "properties": {
                 "message": {"type": "string", "description": "Commit message"},
+                "allow_empty": {"type": "boolean", "description": "Whether to allow creating an empty commit", "default": False},
             },
             "required": ["message"],
         },
