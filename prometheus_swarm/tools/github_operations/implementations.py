@@ -85,6 +85,18 @@ def create_pull_request_legacy(
         )
 
         repo = gh.get_repo(repo_full_name)
+        
+        # Check for existing PRs with the same head and base
+        existing_prs = repo.get_pulls(state='open', head=head, base=base)
+        if existing_prs.totalCount > 0:
+            existing_pr = existing_prs[0]
+            log_key_value("PR Already Exists", f"PR #{existing_pr.number}: {existing_pr.html_url}")
+            return {
+                "success": True,
+                "message": f"Pull request already exists: {title}",
+                "data": {"pr_url": existing_pr.html_url},
+            }
+
         pr = repo.create_pull(title=title, body=body, head=head, base=base)
 
         log_key_value("PR Created", f"PR #{pr.number}: {pr.html_url}")
@@ -168,6 +180,17 @@ def create_pull_request(
         body = pr_template.format(**data)
 
         repo = gh.get_repo(repo_full_name)
+        
+        # Check for existing PRs with the same head and base
+        existing_prs = repo.get_pulls(state='open', head=head, base=base_branch)
+        if existing_prs.totalCount > 0:
+            existing_pr = existing_prs[0]
+            return {
+                "success": True,
+                "message": f"Pull request already exists: {title}",
+                "data": {"pr_url": existing_pr.html_url},
+            }
+            
         pr = repo.create_pull(title=title, body=body, head=head, base=base_branch)
         return {
             "success": True,

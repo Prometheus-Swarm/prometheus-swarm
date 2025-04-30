@@ -232,14 +232,27 @@ def checkout_branch(branch_name: str, **kwargs) -> ToolOutput:
         }
 
 
-def commit_and_push(message: str, **kwargs) -> ToolOutput:
-    """Commit all changes and push to remote."""
+def commit_and_push(message: str, allow_empty: bool = False, **kwargs) -> ToolOutput:
+    """Commit all changes and push to remote.
+    
+    Args:
+        message (str): Commit message
+        allow_empty (bool, optional): Whether to allow creating an empty commit. Defaults to False.
+    """
     try:
         repo = Repo(os.getcwd())
         log_key_value("Committing changes", message)
 
-        # Stage all changes
-        repo.git.add(A=True)
+        # Stage all changes if not creating an empty commit
+        if not allow_empty:
+            repo.git.add(A=True)
+            # Check if there are any staged changes
+            if not repo.index.diff("HEAD"):
+                return {
+                    "success": False,
+                    "message": "No changes to commit and allow_empty is False",
+                    "data": None,
+                }
 
         # Create commit
         commit = repo.index.commit(message)
