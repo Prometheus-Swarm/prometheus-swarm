@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prometheus-swarm
-Version: 0.1.7
+Version: 0.2.0
 Summary: A framework for building AI agents
 Author: Laura Abro
 Classifier: Development Status :: 3 - Alpha

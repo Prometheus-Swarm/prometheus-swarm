@@ -27,6 +27,9 @@ prometheus_swarm/tools/execute_command/implementations.py
 prometheus_swarm/tools/file_operations/__init__.py
 prometheus_swarm/tools/file_operations/definitions.py
 prometheus_swarm/tools/file_operations/implementations.py
+prometheus_swarm/tools/general_operations/__init__.py
+prometheus_swarm/tools/general_operations/definitions.py
+prometheus_swarm/tools/general_operations/implementations.py
 prometheus_swarm/tools/git_operations/__init__.py
 prometheus_swarm/tools/git_operations/definitions.py
 prometheus_swarm/tools/git_operations/implementations.py
