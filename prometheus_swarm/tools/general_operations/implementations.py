@@ -16,7 +16,7 @@ def review_file(recommendation: str, comment: str, **kwargs) -> Dict[str, Any]:
         "data": {"recommendation": recommendation, "comment": comment},
     }
 
-def create_readme_file(title: str, **kwargs) -> Dict[str, Any]:
+def create_readme_file_with_name(title: str, **kwargs) -> Dict[str, Any]:
     """
     Create a README file in the repository.
 
