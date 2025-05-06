@@ -15,9 +15,10 @@ from prometheus_swarm.workflows.utils import get_fork_name
 from git import Repo, GitCommandError
 from prometheus_swarm.tools.github_operations.templates import TEMPLATES
 from github.PullRequest import PullRequest
-from prometheus_swarm.tools.github_operations.templates_legacy import TEMPLATES as TEMPLATES_LEGACY
+from prometheus_swarm.tools.github_operations.templates_legacy import (
+    TEMPLATES as TEMPLATES_LEGACY,
+)
 import csv
-import uuid
 
 # Load environment variables from .env file
 load_dotenv()
@@ -85,12 +86,14 @@ def create_pull_request_legacy(
         )
 
         repo = gh.get_repo(repo_full_name)
-        
+
         # Check for existing PRs with the same head and base
-        existing_prs = repo.get_pulls(state='open', head=head, base=base)
+        existing_prs = repo.get_pulls(state="open", head=head, base=base)
         if existing_prs.totalCount > 0:
             existing_pr = existing_prs[0]
-            log_key_value("PR Already Exists", f"PR #{existing_pr.number}: {existing_pr.html_url}")
+            log_key_value(
+                "PR Already Exists", f"PR #{existing_pr.number}: {existing_pr.html_url}"
+            )
             return {
                 "success": True,
                 "message": f"Pull request already exists: {title}",
@@ -147,6 +150,7 @@ def create_pull_request(
     github_username: str,
     data: Dict[str, Any],
     base_branch: str = "main",
+    is_draft: bool = False,
     **kwargs,
 ) -> ToolOutput:
     """Create PR with formatted description.
@@ -162,7 +166,7 @@ def create_pull_request(
         acceptance_criteria: Task acceptance criteria
         base_branch: Base branch name (default: main)
         github_token: Optional GitHub token for authentication
-
+        is_draft: Whether to create a draft PR (default: False)
     Returns:
         ToolOutput: Standardized tool output with PR URL on success
     """
@@ -180,18 +184,40 @@ def create_pull_request(
         body = pr_template.format(**data)
 
         repo = gh.get_repo(repo_full_name)
-        
+        git_repo = Repo(kwargs.get("repo_path"))
+
+        if is_draft:
+            title = f"[WIP] {title}"
+            try:
+                git_repo.git.checkout(head_branch)
+                git_repo.git.commit("--allow-empty", "-m", "Start draft PR")
+                git_repo.git.push("origin", head_branch)
+            except Exception as e:
+                log_error(e, "Failed to create empty commit")
+                # Continue anyway since the PR creation might still work
+
         # Check for existing PRs with the same head and base
-        existing_prs = repo.get_pulls(state='open', head=head, base=base_branch)
+        existing_prs = repo.get_pulls(state="open", head=head, base=base_branch)
         if existing_prs.totalCount > 0:
             existing_pr = existing_prs[0]
+            # If this is not a draft PR but the existing one is, mark it ready
+            if not is_draft and existing_pr.draft:
+                existing_pr.edit(title=title, body=body)
+                existing_pr.mark_ready_for_review()
+                return {
+                    "success": True,
+                    "message": f"Updated PR to remove draft status: {title}",
+                    "data": {"pr_url": existing_pr.html_url},
+                }
             return {
                 "success": True,
                 "message": f"Pull request already exists: {title}",
                 "data": {"pr_url": existing_pr.html_url},
             }
-            
-        pr = repo.create_pull(title=title, body=body, head=head, base=base_branch)
+
+        pr = repo.create_pull(
+            title=title, body=body, head=head, base=base_branch, draft=is_draft
+        )
         return {
             "success": True,
             "message": f"Successfully created PR: {title}",
@@ -230,13 +256,11 @@ def create_worker_pull_request(
     github_token: str,
     github_username: str,
     head_branch: str,
+    is_draft: bool = False,  # Add is_draft parameter
     **kwargs,
 ) -> ToolOutput:
     """Create a pull request with worker information."""
     try:
-        # Get GitHub client
-        gh = _get_github_client(github_token)
-
         # Format lists into markdown bullets
         tests_bullets = " - " + "\n - ".join(tests)
         changes_bullets = " - " + "\n - ".join(changes)
@@ -257,20 +281,18 @@ def create_worker_pull_request(
         }
 
         # Create the pull request
-        repo = gh.get_repo(f"{repo_owner}/{repo_name}")
-        head = f"{github_username}:{head_branch}"  # Format head with username prefix
-        pr = repo.create_pull(
-            title=title,
-            body=TEMPLATES["worker_pr_template"].format(**data),
-            head=head,
-            base=base_branch,
+        return create_pull_request(
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            head_branch=head_branch,
+            base_branch=base_branch,
+            pr_template=TEMPLATES["worker_pr_template"],
+            github_token=github_token,
+            github_username=github_username,
+            data=data,
+            is_draft=is_draft,
+            **kwargs,
         )
-
-        return {
-            "success": True,
-            "message": f"Successfully created PR: {title}",
-            "data": {"pr_url": pr.html_url},
-        }
     except Exception as e:
         print(f"Failed to create worker pull request: {str(e)}")
         return {
@@ -288,12 +310,15 @@ def create_leader_pull_request(
     description: str,
     changes: str,
     tests: str,
+    github_token: str,
+    github_username: str,
     pr_details: List[Dict[str, str]],
     base_branch: str = "main",
     staking_key: str = None,
     pub_key: str = None,
     staking_signature: str = None,
     public_signature: str = None,
+    is_draft: bool = False,  # Add is_draft parameter
     **kwargs,
 ) -> ToolOutput:
     """Create a pull request for a leader node.
@@ -319,6 +344,7 @@ def create_leader_pull_request(
         pub_key: Leader's public key
         staking_signature: Leader's staking signature
         public_signature: Leader's public signature
+        is_draft: Whether to create a draft PR (default: False)
 
     Returns:
         ToolOutput: Standardized tool output with PR URL on success
@@ -337,6 +363,8 @@ def create_leader_pull_request(
         repo_name=repo_name,
         head_branch=head_branch,
         base_branch=base_branch,
+        github_token=github_token,
+        github_username=github_username,
         pr_template=TEMPLATES["leader_pr_template"],
         data={
             "title": title,
@@ -349,6 +377,7 @@ def create_leader_pull_request(
             "staking_signature": staking_signature,
             "public_signature": public_signature,
         },
+        is_draft=is_draft,
         **kwargs,
     )
 
@@ -829,6 +858,7 @@ def merge_pull_request(
             },
         }
 
+
 def create_github_issue(
     repo_full_name: str,
     title: str,
@@ -898,7 +928,10 @@ def get_pull_request(
         print(f"Failed to get pull request: {str(e)}")
         return None
 
-def star_repository(owner: str, repo_name: str, github_token: str, **kwargs) -> ToolOutput:
+
+def star_repository(
+    owner: str, repo_name: str, github_token: str, **kwargs
+) -> ToolOutput:
     """
     Star a repository using the GitHub API.
 
@@ -983,7 +1016,8 @@ def get_user_starred_repos(username: str = None, **kwargs) -> ToolOutput:
             "message": f"Failed to get starred repositories: {str(e)}",
             "data": None,
         }
-    
+
+
 def review_pull_request_legacy(
     repo_full_name: str,
     pr_number: int,
@@ -1064,4 +1098,10 @@ def review_pull_request_legacy(
             "message": f"Failed to post review: {error_msg}",
             "data": {"traceback": tb},
         }
-
+        tb = traceback.format_exc()
+        log_error(e, f"{error_msg}\n{tb}")
+        return {
+            "success": False,
+            "message": f"Failed to post review: {error_msg}",
+            "data": {"traceback": tb},
+        }
