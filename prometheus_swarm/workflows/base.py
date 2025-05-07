@@ -239,12 +239,14 @@ class WorkflowPhase:
 
 
 class Workflow(ABC):
-    def __init__(self, client, prompts, **kwargs):
+    def __init__(self, client, prompts, system_prompt: Optional[str] = None, **kwargs):
         if not client:
             raise ValueError("Workflow client is not set")
 
         self.client = client
         self.prompts = prompts
+        if system_prompt:
+            self.prompts["system_prompt"] = system_prompt
         self.context: Dict[str, Any] = kwargs
 
     @abstractmethod

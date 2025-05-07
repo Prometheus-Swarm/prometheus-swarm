@@ -1,9 +1,5 @@
 from typing import Dict, List, Any
-from prometheus_swarm.utils.logging import log_key_value, log_error
-from prometheus_swarm.types import ToolOutput   
-
 import uuid
-
 
 
 def generate_tasks(
@@ -46,7 +42,8 @@ def generate_tasks(
             "message": f"Failed to generate tasks: {str(e)}",
             "data": None,
             "error": str(e),
-        }    
+        }
+
 
 def regenerate_tasks(
     tasks: List[Dict[str, Any]] = None,
@@ -86,8 +83,9 @@ def regenerate_tasks(
             "message": f"Failed to regenerate tasks: {str(e)}",
             "data": None,
             "error": str(e),
-        }   
-    
+        }
+
+
 def validate_tasks(decisions: List[Dict[str, Any]], **kwargs) -> dict:
     """Validate the tasks.
 
@@ -109,7 +107,7 @@ def validate_tasks(decisions: List[Dict[str, Any]], **kwargs) -> dict:
     try:
         decisions_dict = {}
         for decision in decisions:
-            if decision["decision"] == True:
+            if decision["decision"]:
                 decisions_dict[decision["uuid"]] = decision
         return {
             "success": True,
@@ -130,7 +128,9 @@ def validate_tasks(decisions: List[Dict[str, Any]], **kwargs) -> dict:
         }
 
 
-def create_task_dependency(task_uuid: str, dependency_tasks: List[str], **kwargs) -> dict:
+def create_task_dependency(
+    task_uuid: str, dependency_tasks: List[str], **kwargs
+) -> dict:
     """Create the task dependency for a task.
 
     Args:
@@ -154,11 +154,17 @@ def create_task_dependency(task_uuid: str, dependency_tasks: List[str], **kwargs
             "data": dependency_tasks_dict,
         }
     except Exception as e:
-        return {"success": False, "error": str(e), "message": f"Failed to update dependency tasks: {str(e)}", "data": None}
-    
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to update dependency tasks: {str(e)}",
+            "data": None,
+        }
+
+
 def generate_issues(
     issues: List[Dict[str, Any]] = None,
-     **kwargs,
+    **kwargs,
 ) -> dict:
     """Generate issues for the repository.
 
@@ -196,17 +202,18 @@ def generate_issues(
             "message": f"Failed to generate issues: {str(e)}",
             "data": None,
             "error": str(e),
-        }   
+        }
+
+
 def audit_tasks(
     result: bool,
-     **kwargs,
+    **kwargs,
 ) -> dict:
-    """Audit the tasks.
-    """
+    """Audit the tasks."""
     try:
         return {
             "success": True,
-            "message": f"Successfully audited tasks",
+            "message": "Successfully audited tasks",
             "data": {
                 "result": result,
             },
@@ -216,6 +223,41 @@ def audit_tasks(
         return {
             "success": False,
             "message": f"Failed to validate tasks: {str(e)}",
+            "data": None,
+            "error": str(e),
+        }
+
+
+def generate_system_prompt(
+    prompt: str,
+    **kwargs,
+) -> dict:
+    """Generate a system prompt for the feature.
+
+    Args:
+        prompt: The system prompt text
+
+    Returns:
+        dict: Result of the operation containing:
+            - success: Whether the operation succeeded
+            - message: Success/error message
+            - data: Dictionary containing:
+                - prompt: The generated system prompt
+            - error: Error message if any
+    """
+    try:
+        return {
+            "success": True,
+            "message": "Successfully generated system prompt",
+            "data": {
+                "prompt": prompt,
+            },
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to generate system prompt: {str(e)}",
             "data": None,
             "error": str(e),
         }

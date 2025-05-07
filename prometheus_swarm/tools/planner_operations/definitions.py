@@ -5,10 +5,11 @@ from prometheus_swarm.tools.planner_operations.implementations import (
     create_task_dependency,
     generate_issues,
     audit_tasks,
+    generate_system_prompt,
 )
 
 DEFINITIONS = {
-     "generate_tasks": {
+    "generate_tasks": {
         "name": "generate_tasks",
         "description": "Generate a JSON file containing tasks from a feature breakdown.",
         "parameters": {
@@ -41,7 +42,6 @@ DEFINITIONS = {
                         "additionalProperties": False,
                     },
                 },
-
             },
             "required": ["tasks"],
             "additionalProperties": False,
@@ -82,7 +82,12 @@ DEFINITIONS = {
                                 "description": "UUID of the task",
                             },
                         },
-                        "required": ["title", "description", "acceptance_criteria", "uuid"],
+                        "required": [
+                            "title",
+                            "description",
+                            "acceptance_criteria",
+                            "uuid",
+                        ],
                         "additionalProperties": False,
                     },
                 },
@@ -185,13 +190,12 @@ DEFINITIONS = {
                         "additionalProperties": False,
                     },
                 },
-
             },
             "required": ["issues"],
             "additionalProperties": False,
         },
         "final_tool": True,
-        "function": generate_issues,    
+        "function": generate_issues,
     },
     "audit_tasks": {
         "name": "audit_tasks",
@@ -209,5 +213,23 @@ DEFINITIONS = {
         },
         "final_tool": True,
         "function": audit_tasks,
+    },
+    "generate_system_prompt": {
+        "name": "generate_system_prompt",
+        "description": "Generate a system prompt for implementing the feature.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "The system prompt text that will guide the implementation",
+                    "minLength": 10,
+                },
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+        "final_tool": True,
+        "function": generate_system_prompt,
     },
 }
