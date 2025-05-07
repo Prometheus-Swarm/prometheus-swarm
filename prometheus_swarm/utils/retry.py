@@ -16,7 +16,6 @@ T = TypeVar("T")
 def is_retryable_error(error: Exception) -> bool:
     """Check if an error is retryable."""
     if isinstance(error, ClientAPIError):
-        # Check if the error has a status code >= 429 (rate limit or server error)
         return error.status_code >= 429
     return False
 
@@ -26,14 +25,18 @@ def with_retry(
     base_delay: float = 5.0,
     max_delay: float = 60.0,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """Decorator to add retry logic to a function using tenacity."""
+    """Decorator to add retry logic to a function using tenacity,
+    and inject `is_retry=True` on retry attempts.
+    """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @retry(
-            retry=retry_if_exception_type(ClientAPIError),
-            stop=stop_after_attempt(max_attempts),
-            wait=wait_exponential(multiplier=base_delay, max=max_delay),
-            before_sleep=lambda retry_state: log_error(
+        # Mutable flag shared across attempts
+        retry_flag = {"is_retry": False}
+
+        def before_sleep_handler(retry_state):
+            # Mark that the next attempt will be a retry
+            retry_flag["is_retry"] = True
+            log_error(
                 retry_state.outcome.exception(),
                 (
                     f"Retry attempt {retry_state.attempt_number}/{max_attempts}: "
@@ -41,13 +44,17 @@ def with_retry(
                     f"{str(retry_state.outcome.exception())}"
                 ),
                 include_traceback=False,
-            ),
+            )
+
+        @retry(
+            retry=retry_if_exception_type(ClientAPIError),
+            stop=stop_after_attempt(max_attempts),
+            wait=wait_exponential(multiplier=base_delay, max=max_delay),
+            before_sleep=before_sleep_handler,
             reraise=True,
         )
         def wrapper(*args, **kwargs):
-            # If this is a retry attempt (not the first attempt), set is_retry=True
-            if wrapper.retry.statistics.get("attempt_number", 0) > 0:
-                kwargs["is_retry"] = True
+            kwargs["is_retry"] = retry_flag["is_retry"]
             return func(*args, **kwargs)
 
         return wrapper
@@ -66,7 +73,7 @@ def send_message_with_retry(client, *args, **kwargs):
 
 
 @with_retry()
-def execute_tool_with_retry(client, tool_use):
+def execute_tool_with_retry(client, tool_use, **kwargs):
     """Execute tool with retry logic.
 
     Only retries on rate limits (429) and server errors (500+).
