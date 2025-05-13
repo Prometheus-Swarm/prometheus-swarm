@@ -383,7 +383,9 @@ class Client(ABC):
 
         # Get conversation history
         messages = self.storage.get_messages(conversation_id)
-
+        summarized_messages = self.storage.get_summarized_messages(conversation_id)
+        log_key_value("Messages Length", len(messages))
+        log_key_value("SUMMARIZED MESSAGES", summarized_messages)
         # Add new message if prompt provided
         if prompt:
             messages.append({"role": "user", "content": prompt})
@@ -423,6 +425,8 @@ class Client(ABC):
             # Convert messages to API format
             api_messages = [
                 self._convert_message_to_api_format(msg) for msg in messages
+            ] + [
+                self._convert_message_to_api_format(msg) for msg in summarized_messages
             ]
 
             # Get available tools for this conversation
@@ -544,7 +548,7 @@ class Client(ABC):
                     tool_results.append(
                         {
                             "tool_call_id": tool_call["id"],
-                            "response": str(result),
+                            "response": json.dumps(result),
                         }
                     )
 
@@ -562,13 +566,11 @@ class Client(ABC):
                     tool_results.append(
                         {
                             "tool_call_id": tool_call["id"],
-                            "response": str(
-                                {
-                                    "success": False,
-                                    "message": str(e),
-                                    "data": None,
-                                }
-                            ),
+                            "response": json.dumps({
+                                "success": False,
+                                "message": str(e),
+                                "data": None,
+                            }),
                         }
                     )
 

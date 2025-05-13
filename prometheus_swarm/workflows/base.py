@@ -9,7 +9,7 @@ import uuid
 import json
 from prometheus_swarm.types import ToolResponse, PhaseResult
 from prometheus_swarm.utils.retry import send_message_with_retry
-from prometheus_swarm.utils.logging import log_section, log_error, configure_logging
+from prometheus_swarm.utils.logging import log_key_value, log_section, log_error, configure_logging
 from prometheus_swarm.clients import clients, setup_client
 import argparse
 import sys
@@ -167,8 +167,34 @@ class WorkflowPhase:
 
     def _parse_result(self, tool_response: ToolResponse) -> PhaseResult:
         """Parse raw API response into standardized format"""
+        log_key_value("TOOL RESPONSE", tool_response)
         try:
-            response_data = ast.literal_eval(tool_response.get("response", "{}"))
+            # Handle case where tool_response is a string
+            if isinstance(tool_response, str):
+                try:
+                    response_data = json.loads(tool_response)
+                except json.JSONDecodeError:
+                    response_data = {"success": False, "data": {}, "message": tool_response}
+            else:
+                response = tool_response.get("response", "{}")
+                log_key_value("RESPONSE TYPE", type(response))
+                log_key_value("RESPONSE CONTENT", response)
+                
+                # Handle different response types
+                if isinstance(response, str):
+                    try:
+                        response_data = json.loads(response)
+                    except json.JSONDecodeError:
+                        response_data = ast.literal_eval(response)
+                elif isinstance(response, dict):
+                    response_data = response
+                elif hasattr(response, '__dict__'):
+                    # Handle AST node objects by converting to dict
+                    response_data = response.__dict__
+                else:
+                    # Fallback for other types
+                    response_data = {"success": False, "data": {}, "message": f"Unexpected response type: {type(response)}"}
+
             return PhaseResult(
                 success=response_data.get("success", False),
                 data=response_data.get("data", {}),
@@ -178,7 +204,8 @@ class WorkflowPhase:
                     else None
                 ),
             )
-        except (SyntaxError, ValueError) as e:
+        except (SyntaxError, ValueError, json.JSONDecodeError) as e:
+            log_error(e, "Failed to parse response")
             return PhaseResult(
                 success=False,
                 data={},
