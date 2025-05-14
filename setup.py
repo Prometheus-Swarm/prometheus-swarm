@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="prometheus-swarm",
-    version="0.2.8",
+    version="0.2.8b1",
     packages=find_packages(),
     install_requires=[
         "anthropic>=0.8.1",

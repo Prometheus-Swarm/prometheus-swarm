@@ -1,11 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: prometheus-swarm
-Version: 0.2.8
+Version: 0.2.8b1
 Summary: A framework for building AI agents
-Home-page: UNKNOWN
 Author: Laura Abro
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -14,6 +11,28 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
-
-UNKNOWN
-
+Requires-Dist: anthropic>=0.8.1
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: tiktoken>=0.5.2
+Requires-Dist: pytest>=8.0.2
+Requires-Dist: typing-extensions>=4.12.2
+Requires-Dist: GitPython>=3.1.44
+Requires-Dist: pygithub>=2.5.0
+Requires-Dist: Flask>=3.0.0
+Requires-Dist: requests>=2.32.0
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: gunicorn>=22.0.0
+Requires-Dist: solders>=0.26.0
+Requires-Dist: base58>=2.1.0
+Requires-Dist: tenacity>=9.0.0
+Requires-Dist: sqlmodel>=0.0.22
+Requires-Dist: openai>=0.28.0
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: pymongo>=4.11.0
+Requires-Dist: PyNaCl>=1.5.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
