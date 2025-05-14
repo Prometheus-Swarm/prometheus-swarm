@@ -8,6 +8,7 @@ from pathlib import Path
 from functools import wraps
 import ast
 from colorama import init, Fore, Style
+import contextvars
 
 # Initialize colorama for cross-platform color support
 init(strip=False)  # Force color output even when not in a terminal
@@ -22,10 +23,14 @@ logger.propagate = False
 _logging_configured = False
 
 # Optional external error hook
-_external_error_logging_hook: Optional[Callable[[Exception, str, str], None]] = None
+_external_error_logging_hook: Optional[Callable[[Exception, str, str, Optional[str], Optional[str]], None]] = None
 
-# Optional external error hook
-_external_logging_hook: Optional[Callable[[Exception, str, str], None]] = None
+# Optional external logging hook
+_external_logging_hook: Optional[Callable[[str, Optional[str], Optional[str]], None]] = None
+
+task_id_var = contextvars.ContextVar("task_id", default=None)
+swarm_bounty_id_var = contextvars.ContextVar("swarm_bounty_id", default=None)
+
 
 class SectionFormatter(logging.Formatter):
     """Custom formatter that only shows timestamp and level for section headers and errors."""
@@ -74,22 +79,34 @@ class SectionFormatter(logging.Formatter):
 
         return formatted_msg
 
-def set_error_post_hook(hook: Callable[[Exception, str, str], None]):
+
+def set_error_post_hook(
+    hook: Callable[[Exception, str, str, Optional[str], Optional[str]], None],
+):
     """Register an external hook to post errors to a server."""
     global _external_error_logging_hook
     _external_error_logging_hook = hook
-    
-def set_logs_post_hook(hook: Callable[[Exception, str, str], None]):
+
+
+def set_logs_post_hook(hook: Callable[[str, Optional[str], Optional[str]], None]):
     """Register an external hook to post logs to a server."""
     global _external_logging_hook
     _external_logging_hook = hook
 
+
 def _post_log(level: str, message: str):
     if _external_logging_hook:
         try:
-            _external_logging_hook(level, message)
+            _external_logging_hook(
+                level=level,
+                message=message,
+                task_id=task_id_var.get(),
+                swarm_bounty_id=swarm_bounty_id_var.get(),
+            )
         except Exception as post_error:
             logger.warning(f"Failed to send log to external hook: {post_error}")
+
+
 def configure_logging():
     """Configure logging for the application."""
     global _logging_configured
@@ -210,15 +227,22 @@ def log_error(
         logger.info("Stack trace:")
         for line in traceback.format_tb(error.__traceback__):
             logger.info(line.rstrip())
-     # External posting if configured
+    # External posting if configured
     if _external_error_logging_hook:
         stack_trace = ""
         if include_traceback and error.__traceback__:
             stack_trace = "".join(traceback.format_tb(error.__traceback__))
         try:
-            _external_error_logging_hook(error, context or "ERROR", stack_trace)
+            _external_error_logging_hook(
+                error,
+                context or "ERROR",
+                stack_trace,
+                task_id=task_id_var.get(),
+                swarm_bounty_id=swarm_bounty_id_var.get(),
+            )
         except Exception as post_error:
             logger.warning(f"Failed to send error to external hook: {post_error}")
+
 
 def log_execution_time(func):
     """Decorator to log function execution time."""
