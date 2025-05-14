@@ -382,7 +382,7 @@ class Client(ABC):
         system_prompt = conversation["system_prompt"]
 
         # Get conversation history
-        messages = self.storage.get_messages(conversation_id)
+        messages = self.storage.get_messages(conversation_id, client=self)
         summarized_messages = self.storage.get_summarized_messages(conversation_id)
         log_key_value("Messages Length", len(messages))
         log_key_value("SUMMARIZED MESSAGES", summarized_messages)

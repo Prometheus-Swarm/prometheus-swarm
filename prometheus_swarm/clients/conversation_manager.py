@@ -12,7 +12,7 @@ from prometheus_swarm.database import (
 from prometheus_swarm.database.models import SummarizedMessage
 from datetime import datetime
 
-from prometheus_swarm.utils.logging import log_key_value
+from prometheus_swarm.utils.logging import log_key_value, log_section, log_error
 
 
 class ConversationManager:
@@ -92,22 +92,28 @@ class ConversationManager:
                 for msg in conversation.messages
             ]
 
-            MESSAGE_THRESHOLD = 10
+            MESSAGE_THRESHOLD = 5
             log_key_value("MESSAGES", messages)
+            
             # Check if we should summarize
-
-            log_key_value("CLIENT", client)
-            log_key_value("SHOULD SUMMARIZE", self._should_summarize(messages, MESSAGE_THRESHOLD))
             if client and self._should_summarize(messages, MESSAGE_THRESHOLD):
                 # Get the last threshold messages
                 log_key_value("SUMMARIZING", messages)
                 last_messages = messages[-MESSAGE_THRESHOLD:]
-                    # Create new summarized message
-                self.save_summarized_messages(
-                    conversation_id=conversation_id,
-                    messages=last_messages,
-                    client=client
-                )
+                # Create new summarized message and wait for it to complete
+                try:
+                    self.save_summarized_messages(
+                        conversation_id=conversation_id,
+                        messages=last_messages,
+                        client=client
+                    )
+                    # After summarization, get the updated messages
+                    messages = [
+                        {"role": msg.role, "content": json.loads(msg.content)}
+                        for msg in conversation.messages
+                    ]
+                except Exception as e:
+                    log_error(e, "Error during summarization")
             
             return messages
         
@@ -117,7 +123,15 @@ class ConversationManager:
             conversation = session.get(Conversation, conversation_id)
             if not conversation:
                 raise ValueError(f"Conversation {conversation_id} not found")
-            return conversation.summarized_messages
+            
+            # Convert to dict format while still in session
+            return [
+                {
+                    "role": msg.role,
+                    "content": msg.content if isinstance(msg.content, str) else json.loads(msg.content)
+                }
+                for msg in conversation.summarized_messages
+            ]
         
     def save_summarized_messages(self, conversation_id: str, messages: List[Dict[str, Any]], client: Optional[Any] = None):
         """Save summarized messages with optional AI summarization.
@@ -127,20 +141,32 @@ class ConversationManager:
             messages: List of messages to consolidate
             client: Optional LLM client to use for summarization
         """
-        log_key_value("SUMMARIZATION STARTS", messages)
+        log_section("SUMMARIZATION PROCESS")
+        log_key_value("Conversation ID", conversation_id)
+        log_key_value("Number of Messages", len(messages))
+        log_key_value("Has Client", bool(client))
+        
         with get_session() as session:
             conversation = session.get(Conversation, conversation_id)
             if not conversation:
                 raise ValueError(f"Conversation {conversation_id} not found")
             
-            # Filter out tool messages
-            non_tool_messages = [msg for msg in messages if msg["role"] != "tool"]
+            # Find the last tool message and response
+            last_tool_idx = -1
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i]["role"] == "tool":
+                    last_tool_idx = i
+                    break
+            
+            # Split messages into those to summarize and those to keep
+            messages_to_summarize = messages[:last_tool_idx] if last_tool_idx != -1 else messages
+            log_key_value("Messages to Summarize", len(messages_to_summarize))
             
             # If client is provided, use it to summarize the messages
             if client:
                 # Create a summary prompt
                 summary_prompt = "Please summarize the following conversation in a concise way, highlighting the key points and decisions made:\n\n"
-                for msg in non_tool_messages:
+                for msg in messages_to_summarize:
                     role = msg["role"]
                     content = msg["content"]
                     if isinstance(content, list):
@@ -149,6 +175,8 @@ class ConversationManager:
                         content = " ".join(text_blocks)
                     summary_prompt += f"{role}: {content}\n"
                 
+                log_key_value("Summary Prompt", summary_prompt)
+                
                 # Get summary from the LLM
                 response = client.send_message(prompt=summary_prompt)
                 if isinstance(response["content"], list):
@@ -156,26 +184,24 @@ class ConversationManager:
                     summary = " ".join(block["text"] for block in response["content"] if block["type"] == "text")
                 else:
                     summary = response["content"]
-                print(f"Summary[SUMMARIZATION STARTS]: {summary}")
+                
+                log_key_value("Generated Summary", summary)
+                
                 # Store both original messages and summary
                 summarized_message = SummarizedMessage(
                     id=str(uuid.uuid4()),
                     conversation_id=conversation_id,
-                    role="system",
-                    content=json.dumps({
-                        "original_messages": messages,  # Keep all messages in original_messages
-                        "summary": summary
-                    }),
+                    role="user",
+                    content=json.dumps(summary),  # Store only the summary
                 )
-                
-
             else:
                 # Store just the original messages without summarization
+                log_key_value("No Client", "Storing messages without summarization")
                 summarized_message = SummarizedMessage(
                     id=str(uuid.uuid4()),
                     conversation_id=conversation_id,
-                    role="system",
-                    content=json.dumps(messages),
+                    role="user",
+                    content=json.dumps(messages_to_summarize),
                 )
             
             # Check if we need to remove old summarized messages
@@ -187,21 +213,27 @@ class ConversationManager:
             if len(existing_messages) >= SUMMARIZED_MESSAGE_THRESHOLD:
                 # Only delete the oldest message (last in the list since we ordered by desc)
                 oldest_message = existing_messages[-1]
+                log_key_value("Removing Old Summary", f"ID: {oldest_message.id}")
                 session.delete(oldest_message)
 
-            log_key_value("SUMMARIZED MESSAGE", summarized_message)
+            log_key_value("New Summary ID", summarized_message.id)
+            log_key_value("New Summary Content", json.loads(summarized_message.content))
+            
             session.add(summarized_message)
             session.commit()
 
             # Delete the original messages that were summarized
-            for msg in messages:
-                session.query(Message).filter(
+            deleted_count = 0
+            for msg in messages_to_summarize:
+                result = session.query(Message).filter(
                     Message.conversation_id == conversation_id,
                     Message.role == msg["role"],
                     Message.content == json.dumps(msg["content"])
                 ).delete()
+                deleted_count += result
+            log_key_value("Deleted Original Messages", deleted_count)
             session.commit()
-    
+
     def save_message(self, conversation_id: str, role: str, content: Any):
         """Save a message."""
         with get_session() as session:
