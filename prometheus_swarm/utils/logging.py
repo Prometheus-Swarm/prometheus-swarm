@@ -23,13 +23,18 @@ logger.propagate = False
 _logging_configured = False
 
 # Optional external error hook
-_external_error_logging_hook: Optional[Callable[[Exception, str, str, Optional[str], Optional[str]], None]] = None
+_external_error_logging_hook: Optional[
+    Callable[[Exception, str, str, Optional[str], Optional[str], Optional[str]], None]
+] = None
 
 # Optional external logging hook
-_external_logging_hook: Optional[Callable[[str, Optional[str], Optional[str]], None]] = None
+_external_logging_hook: Optional[
+    Callable[[str, Optional[str], Optional[str], Optional[str]], None]
+] = None
 
 task_id_var = contextvars.ContextVar("task_id", default=None)
 swarm_bounty_id_var = contextvars.ContextVar("swarm_bounty_id", default=None)
+signature_var = contextvars.ContextVar("signature", default=None)
 
 
 class SectionFormatter(logging.Formatter):
@@ -81,14 +86,18 @@ class SectionFormatter(logging.Formatter):
 
 
 def set_error_post_hook(
-    hook: Callable[[Exception, str, str, Optional[str], Optional[str]], None],
+    hook: Callable[
+        [Exception, str, str, Optional[str], Optional[str], Optional[str]], None
+    ],
 ):
     """Register an external hook to post errors to a server."""
     global _external_error_logging_hook
     _external_error_logging_hook = hook
 
 
-def set_logs_post_hook(hook: Callable[[str, Optional[str], Optional[str]], None]):
+def set_logs_post_hook(
+    hook: Callable[[str, str, Optional[str], Optional[str], Optional[str]], None],
+):
     """Register an external hook to post logs to a server."""
     global _external_logging_hook
     _external_logging_hook = hook
@@ -102,6 +111,7 @@ def _post_log(level: str, message: str):
                 message=message,
                 task_id=task_id_var.get(),
                 swarm_bounty_id=swarm_bounty_id_var.get(),
+                signature=signature_var.get(),
             )
         except Exception as post_error:
             logger.warning(f"Failed to send log to external hook: {post_error}")
@@ -239,6 +249,7 @@ def log_error(
                 stack_trace,
                 task_id=task_id_var.get(),
                 swarm_bounty_id=swarm_bounty_id_var.get(),
+                signature=signature_var.get(),
             )
         except Exception as post_error:
             logger.warning(f"Failed to send error to external hook: {post_error}")
