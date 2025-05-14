@@ -92,7 +92,7 @@ class ConversationManager:
                 for msg in conversation.messages
             ]
 
-            MESSAGE_THRESHOLD = 5
+            MESSAGE_THRESHOLD = 4
             log_key_value("MESSAGES", messages)
             
             # Check if we should summarize
@@ -159,7 +159,8 @@ class ConversationManager:
                     break
             
             # Split messages into those to summarize and those to keep
-            messages_to_summarize = messages[:last_tool_idx] if last_tool_idx != -1 else messages
+            # Always skip the last 2 messages
+            messages_to_summarize = messages[:-2] if len(messages) > 2 else []
             log_key_value("Messages to Summarize", len(messages_to_summarize))
             
             # If client is provided, use it to summarize the messages
@@ -224,7 +225,9 @@ class ConversationManager:
 
             # Delete the original messages that were summarized
             deleted_count = 0
-            for msg in messages_to_summarize:
+            # Skip the last 2 messages when deleting
+            messages_to_delete = messages_to_summarize[:-2] if len(messages_to_summarize) > 2 else []
+            for msg in messages_to_delete:
                 result = session.query(Message).filter(
                     Message.conversation_id == conversation_id,
                     Message.role == msg["role"],

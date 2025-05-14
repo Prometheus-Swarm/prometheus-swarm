@@ -424,9 +424,9 @@ class Client(ABC):
         try:
             # Convert messages to API format
             api_messages = [
-                self._convert_message_to_api_format(msg) for msg in messages
-            ] + [
                 self._convert_message_to_api_format(msg) for msg in summarized_messages
+            ] + [
+                self._convert_message_to_api_format(msg) for msg in messages
             ]
 
             # Get available tools for this conversation
@@ -548,7 +548,7 @@ class Client(ABC):
                     tool_results.append(
                         {
                             "tool_call_id": tool_call["id"],
-                            "response": json.dumps(result),
+                            "response": json.dumps(result),  # Convert result to string
                         }
                     )
 
@@ -581,5 +581,5 @@ class Client(ABC):
             response = send_message_with_retry(
                 self,
                 conversation_id=conversation_id,
-                tool_response=json.dumps(tool_results),
+                tool_response=json.dumps(tool_results),  # Convert to JSON only for API call
             )
