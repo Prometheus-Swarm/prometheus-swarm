@@ -3,7 +3,7 @@
 import logging
 import sys
 import traceback
-from typing import Any
+from typing import Any, Callable, Optional
 from pathlib import Path
 from functools import wraps
 import ast
@@ -21,6 +21,11 @@ logger.propagate = False
 # Track if logging has been configured
 _logging_configured = False
 
+# Optional external error hook
+_external_error_logging_hook: Optional[Callable[[Exception, str, str], None]] = None
+
+# Optional external error hook
+_external_logging_hook: Optional[Callable[[Exception, str, str], None]] = None
 
 class SectionFormatter(logging.Formatter):
     """Custom formatter that only shows timestamp and level for section headers and errors."""
@@ -69,7 +74,22 @@ class SectionFormatter(logging.Formatter):
 
         return formatted_msg
 
+def set_error_post_hook(hook: Callable[[Exception, str, str], None]):
+    """Register an external hook to post errors to a server."""
+    global _external_error_logging_hook
+    _external_error_logging_hook = hook
+    
+def set_logs_post_hook(hook: Callable[[Exception, str, str], None]):
+    """Register an external hook to post logs to a server."""
+    global _external_logging_hook
+    _external_logging_hook = hook
 
+def _post_log(level: str, message: str):
+    if _external_logging_hook:
+        try:
+            _external_logging_hook(level, message)
+        except Exception as post_error:
+            logger.warning(f"Failed to send log to external hook: {post_error}")
 def configure_logging():
     """Configure logging for the application."""
     global _logging_configured
@@ -108,21 +128,27 @@ def log_section(name: str) -> None:
     """Log a section header with consistent formatting."""
     if not _logging_configured:
         configure_logging()
-    logger.info(f"\n=== {name.upper()} ===")
+    msg = f"\n=== {name.upper()} ==="
+    logger.info(msg)
+    _post_log("INFO", msg)
 
 
 def log_key_value(key: str, value: Any) -> None:
     """Log a key-value pair with consistent formatting."""
     if not _logging_configured:
         configure_logging()
-    logger.info(f"{key}: {format_value(value)}")
+    msg = f"{key}: {format_value(value)}"
+    logger.info(msg)
+    _post_log("INFO", msg)
 
 
 def log_value(value: str) -> None:
     """Log a value with consistent formatting."""
     if not _logging_configured:
         configure_logging()
-    logger.info(format_value(value))
+    msg = format_value(value)
+    logger.info(msg)
+    _post_log("INFO", msg)
 
 
 def log_dict(data: dict, prefix: str = "") -> None:
@@ -184,7 +210,15 @@ def log_error(
         logger.info("Stack trace:")
         for line in traceback.format_tb(error.__traceback__):
             logger.info(line.rstrip())
-
+     # External posting if configured
+    if _external_error_logging_hook:
+        stack_trace = ""
+        if include_traceback and error.__traceback__:
+            stack_trace = "".join(traceback.format_tb(error.__traceback__))
+        try:
+            _external_error_logging_hook(error, context or "ERROR", stack_trace)
+        except Exception as post_error:
+            logger.warning(f"Failed to send error to external hook: {post_error}")
 
 def log_execution_time(func):
     """Decorator to log function execution time."""
