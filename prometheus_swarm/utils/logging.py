@@ -107,7 +107,7 @@ def _post_log(level: str, message: str):
     if _external_logging_hook:
         try:
             _external_logging_hook(
-                level=level,
+                logLevel=level,
                 message=message,
                 task_id=task_id_var.get(),
                 swarm_bounty_id=swarm_bounty_id_var.get(),
