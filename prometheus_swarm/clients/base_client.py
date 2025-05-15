@@ -393,7 +393,7 @@ class Client(ABC):
                 self.storage.save_message(conversation_id, "user", prompt)
 
         # Add tool response if provided
-        if tool_response:
+        if tool_response and not is_retry:
             tool_message = self._format_tool_response(tool_response)
             if self._should_split_tool_responses():
                 # Some APIs (e.g. OpenAI) require separate messages for each tool response
