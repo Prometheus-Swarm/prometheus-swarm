@@ -29,7 +29,7 @@ _external_error_logging_hook: Optional[
 
 # Optional external logging hook
 _external_logging_hook: Optional[
-    Callable[[str, Optional[str], Optional[str], Optional[str]], None]
+    Callable[[str, str, Optional[str], Optional[str], Optional[str]], None]
 ] = None
 
 task_id_var = contextvars.ContextVar("task_id", default=None)
