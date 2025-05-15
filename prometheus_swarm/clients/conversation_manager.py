@@ -92,7 +92,7 @@ class ConversationManager:
                 for msg in conversation.messages
             ]
 
-            MESSAGE_THRESHOLD = 4
+            MESSAGE_THRESHOLD = 10
             log_key_value("MESSAGES", messages)
             
             # Check if we should summarize
@@ -166,7 +166,7 @@ class ConversationManager:
             # If client is provided, use it to summarize the messages
             if client:
                 # Create a summary prompt
-                summary_prompt = "Please summarize the following conversation in a concise way, highlighting the key points and decisions made:\n\n"
+                summary_prompt = "Please summarize the following conversation in a concise way, highlighting the key points and decisions made: Please format your response as a JSON object with the following fields: 'summary', 'key_points', and 'decisions'. If none, please reply N/A. \n\n "
                 for msg in messages_to_summarize:
                     role = msg["role"]
                     content = msg["content"]
