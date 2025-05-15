@@ -151,32 +151,34 @@ def format_value(value: Any) -> str:
     return str(value)
 
 
-def log_section(name: str) -> None:
+def log_section(name: str, logToServer: bool = True) -> None:
     """Log a section header with consistent formatting."""
     if not _logging_configured:
         configure_logging()
     msg = f"\n=== {name.upper()} ==="
     logger.info(msg)
-    _post_log("INFO", msg)
+    if logToServer:
+        _post_log("INFO", msg)
 
 
-def log_key_value(key: str, value: Any) -> None:
+def log_key_value(key: str, value: Any, logToServer: bool = True) -> None:
     """Log a key-value pair with consistent formatting."""
     if not _logging_configured:
         configure_logging()
     msg = f"{key}: {format_value(value)}"
     logger.info(msg)
-    _post_log("INFO", msg)
+    if logToServer:
+        _post_log("INFO", msg)
 
 
-def log_value(value: str) -> None:
+def log_value(value: str, logToServer: bool = True) -> None:
     """Log a value with consistent formatting."""
     if not _logging_configured:
         configure_logging()
     msg = format_value(value)
     logger.info(msg)
-    _post_log("INFO", msg)
-
+    if logToServer:
+        _post_log("INFO", msg)
 
 def log_dict(data: dict, prefix: str = "") -> None:
     """Log a dictionary with consistent formatting."""
@@ -226,7 +228,7 @@ def log_tool_result(result: Any) -> None:
 
 
 def log_error(
-    error: Exception, context: str = "", include_traceback: bool = True
+    error: Exception, context: str = "", include_traceback: bool = True, logToServer: bool = True
 ) -> None:
     """Log an error with consistent formatting and optional stack trace."""
     if not _logging_configured:
@@ -238,7 +240,7 @@ def log_error(
         for line in traceback.format_tb(error.__traceback__):
             logger.info(line.rstrip())
     # External posting if configured
-    if _external_error_logging_hook:
+    if _external_error_logging_hook and logToServer:
         stack_trace = ""
         if include_traceback and error.__traceback__:
             stack_trace = "".join(traceback.format_tb(error.__traceback__))
