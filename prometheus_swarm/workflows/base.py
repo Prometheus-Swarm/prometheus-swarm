@@ -9,13 +9,19 @@ import uuid
 import json
 from prometheus_swarm.types import ToolResponse, PhaseResult
 from prometheus_swarm.utils.retry import send_message_with_retry
-from prometheus_swarm.utils.logging import log_section, log_error, configure_logging
+from prometheus_swarm.utils.logging import (
+    log_section,
+    log_key_value,
+    log_error,
+    configure_logging,
+)
 from prometheus_swarm.clients import clients, setup_client
 import argparse
 import sys
 import os
 from nacl.signing import SigningKey
 import base58
+from pathlib import Path
 
 
 @dataclass
@@ -163,6 +169,16 @@ class WorkflowPhase:
         if workflow is None:
             raise ValueError("Workflow is not set")
 
+        # Filter available tools to only those requested
+        if available_tools:
+            self.tools = {
+                tool: tool_def
+                for tool, tool_def in workflow.client.tools.items()
+                if tool in available_tools
+            }
+        else:
+            self.tools = workflow.client.tools
+
         self.prompt = workflow.prompts[prompt_name].format(**workflow.context)
 
     def _parse_result(self, tool_response: ToolResponse) -> PhaseResult:
@@ -239,7 +255,24 @@ class WorkflowPhase:
 
 
 class Workflow(ABC):
-    def __init__(self, client, prompts, system_prompt: Optional[str] = None, **kwargs):
+    def __init__(
+        self,
+        client,
+        prompts,
+        system_prompt: Optional[str] = None,
+        custom_tools_dir: Optional[str] = None,
+        **kwargs,
+    ):
+        """Initialize a workflow.
+
+        Args:
+            client: The LLM client to use
+            prompts: Dictionary of prompts for this workflow
+            system_prompt: Optional system prompt to override the default
+            custom_tools_dir: Optional path to custom tools directory. If not provided,
+                            will look for tools in workflow_module_dir/tools/
+            **kwargs: Additional context variables
+        """
         if not client:
             raise ValueError("Workflow client is not set")
 
@@ -248,6 +281,22 @@ class Workflow(ABC):
         if system_prompt:
             self.prompts["system_prompt"] = system_prompt
         self.context: Dict[str, Any] = kwargs
+
+        # Register custom tools if available
+        if custom_tools_dir is None:
+            # Get the workflow's module directory
+            workflow_module = sys.modules[self.__class__.__module__]
+            workflow_dir = Path(workflow_module.__file__).parent
+            custom_tools_dir = workflow_dir / "tools"
+
+        if custom_tools_dir and Path(custom_tools_dir).exists():
+            log_section("REGISTERING WORKFLOW TOOLS")
+            log_key_value("Tools Directory", str(custom_tools_dir))
+            try:
+                registered = client.register_tools(str(custom_tools_dir))
+                log_key_value("Registered Tools", registered)
+            except Exception as e:
+                log_error(e, "Failed to register workflow tools")
 
     @abstractmethod
     def setup(self):
