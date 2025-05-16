@@ -21,6 +21,8 @@ from prometheus_swarm.utils.retry import (
 )
 import json
 import ast
+import os
+import sys
 
 
 class Client(ABC):
@@ -135,13 +137,28 @@ class Client(ABC):
             raise ValueError(f"Tools directory not found: {tools_dir}")
 
         registered_tools = []
+        log_section("REGISTERING TOOLS")
+        log_key_value("Tools Directory", str(tools_dir))
 
         # Find all definitions.py files in subdirectories
         for definitions_file in tools_dir.rglob("definitions.py"):
+            log_section(f"Processing {definitions_file}")
             # Import the definitions module
-            spec = importlib.util.spec_from_file_location(
-                f"tools.{definitions_file.parent.name}", definitions_file
-            )
+            # Get the full path relative to the workspace root
+            try:
+                relative_path = definitions_file.relative_to(Path.cwd())
+                # Convert path components to module path (e.g. a/b/c.py -> a.b.c)
+                module_path = str(relative_path.parent).replace(os.sep, ".")
+                # Create the module name including the parent directory
+                module_name = f"{module_path}.definitions"
+                log_key_value("Module Path", module_path)
+                log_key_value("Module Name", module_name)
+            except ValueError:
+                # If relative_to fails, use just the parent directory name
+                module_name = f"tools.{definitions_file.parent.name}"
+                log_key_value("Fallback Module Name", module_name)
+
+            spec = importlib.util.spec_from_file_location(module_name, definitions_file)
             if not spec or not spec.loader:
                 log_error(
                     ImportError(f"Could not load {definitions_file}"),
@@ -151,7 +168,16 @@ class Client(ABC):
 
             try:
                 definitions_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(definitions_module)
+                # Add the parent directory to sys.path temporarily
+                parent_dir = str(definitions_file.parent.parent)
+                log_key_value("Adding to sys.path", parent_dir)
+                sys.path.insert(0, parent_dir)
+
+                try:
+                    spec.loader.exec_module(definitions_module)
+                finally:
+                    # Remove the parent directory from sys.path
+                    sys.path.remove(parent_dir)
 
                 if not hasattr(definitions_module, "DEFINITIONS"):
                     log_error(
@@ -164,30 +190,41 @@ class Client(ABC):
 
                 # Check for duplicate tools before registering any from this file
                 new_tools = definitions_module.DEFINITIONS
+                log_key_value("Found Tools", list(new_tools.keys()))
+
                 duplicates = set(new_tools.keys()) & set(self.tools.keys())
                 if duplicates:
-                    log_error(
-                        ValueError(f"Duplicate tools found: {duplicates}"),
-                        "Warning: Skipping duplicate tools",
-                    )
-                    # Only register non-duplicate tools from this file
+                    # Keep tools that either aren't duplicates or have override=True
                     new_tools = {
                         name: tool
                         for name, tool in new_tools.items()
-                        if name not in duplicates
+                        if name not in duplicates or tool.get("override", False)
                     }
+
+                    # Log any skipped duplicates
+                    skipped = duplicates - set(new_tools.keys())
+                    if skipped:
+                        log_error(
+                            ValueError(f"Duplicate tools skipped: {skipped}"),
+                            "Warning: Skipping duplicate tools",
+                        )
 
                 # Register tools
                 self.tools.update(new_tools)
                 registered_tools.extend(new_tools.keys())
+                log_key_value("Successfully Registered", list(new_tools.keys()))
 
             except Exception as e:
                 log_error(
                     e,
                     f"Warning: Failed to load tools from {definitions_file}",
+                    include_traceback=True,
                 )
                 continue
 
+        log_section("TOOL REGISTRATION COMPLETE")
+        log_key_value("Total Tools Registered", len(registered_tools))
+        log_key_value("All Available Tools", list(self.tools.keys()))
         return registered_tools
 
     def create_conversation(
