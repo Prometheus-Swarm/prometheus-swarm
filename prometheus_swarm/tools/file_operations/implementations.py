@@ -57,10 +57,55 @@ def write_file(
     try:
         file_path = _normalize_path(file_path)
         full_path = Path(os.getcwd()) / file_path
-        full_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(full_path, "w") as f:
-            f.write(content)
+        # First verify we can create the directory
+        try:
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            if not full_path.parent.exists():
+                return {
+                    "success": False,
+                    "message": f"Failed to create directory {full_path.parent} - directory does not exist after creation",
+                    "data": None,
+                }
+            if not os.access(full_path.parent, os.W_OK):
+                return {
+                    "success": False,
+                    "message": f"No write permission for directory {full_path.parent}",
+                    "data": None,
+                }
+        except Exception as dir_error:
+            return {
+                "success": False,
+                "message": f"Failed to create directory {full_path.parent}: {str(dir_error)}",
+                "data": None,
+            }
+
+        # Write the file
+        try:
+            with open(full_path, "w") as f:
+                f.write(content)
+        except Exception as write_error:
+            return {
+                "success": False,
+                "message": f"Failed to write file {file_path}: {str(write_error)}",
+                "data": None,
+            }
+
+        # Verify the file was written successfully
+        if not full_path.exists():
+            return {
+                "success": False,
+                "message": f"Failed to write file {file_path} (file does not exist after write)",
+                "data": None,
+            }
+        if (
+            full_path.stat().st_size == 0 and content
+        ):  # Only check if content was provided
+            return {
+                "success": False,
+                "message": f"Failed to write file {file_path} (file is empty)",
+                "data": None,
+            }
 
         # If commit message provided, commit and push changes
         if commit_message:
@@ -76,7 +121,7 @@ def write_file(
     except Exception as e:
         return {
             "success": False,
-            "message": str(e),
+            "message": f"Unexpected error writing file {file_path}: {str(e)}",
             "data": None,
         }
 
@@ -300,7 +345,13 @@ def list_files(directory: str, **kwargs) -> ToolOutput:
 
         # Combine and filter out .git directory and node_modules
         all_files = tracked_files.union(untracked_files)
-        files = sorted([f for f in all_files if not f.startswith(".git/") and not "node_modules" in f.split("/")])
+        files = sorted(
+            [
+                f
+                for f in all_files
+                if not f.startswith(".git/") and not "node_modules" in f.split("/")
+            ]
+        )
 
         return {
             "success": True,

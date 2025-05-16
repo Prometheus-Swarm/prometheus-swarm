@@ -64,14 +64,43 @@ def run_tests(
 
     If no command provided, uses project defaults based on framework:
     - pytest: "pytest {path}"
-    - jest: "jest {path}"
+    - jest: "npx jest {path} --ci"
     - vitest: "npx vitest {path}"
     etc.
     """
 
+    # Check if test path exists before running tests
+    if path and not os.path.exists(path):
+        return {
+            "success": False,
+            "message": f"No tests found at path: {path}",
+            "data": None,
+        }
+
+    # Install test runners if needed
+    framework_packages = {
+        "pytest": ("pip", "pytest"),
+        "jest": ("npm", "jest"),
+        "vitest": ("npm", "vitest"),
+    }
+
+    if framework in framework_packages:
+        pkg_manager, pkg_name = framework_packages[framework]
+        install_result = install_dependency(
+            package_name=pkg_name,
+            package_manager=pkg_manager,
+            is_dev_dependency=True,
+        )
+        if not install_result["success"]:
+            return {
+                "success": False,
+                "message": f"Failed to install test runner: {install_result['message']}",
+                "data": install_result.get("data"),
+            }
+
     commands = {
         "pytest": f"python3 -m pytest {path if path else ''} -v",
-        "jest": f"jest {path if path else ''}",
+        "jest": f"npx jest {path if path else ''} --ci",
         "vitest": f"npx vitest {path if path else ''} --run",  # Add --run flag to ensure it doesn't start in watch mode
     }
     command = commands.get(framework)
