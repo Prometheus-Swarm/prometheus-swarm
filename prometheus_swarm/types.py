@@ -10,6 +10,9 @@ class ToolDefinition(TypedDict):
     required: List[str]
     final_tool: bool
     function: Callable
+    override: (
+        bool  # Whether this tool should override an existing tool with the same name
+    )
 
 
 class ToolCall(TypedDict):
