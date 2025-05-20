@@ -419,8 +419,10 @@ class Client(ABC):
         system_prompt = conversation["system_prompt"]
 
         # Get conversation history
-        messages = self.storage.get_messages(conversation_id)
-
+        messages = self.storage.get_messages(conversation_id, client=self)
+        summarized_messages = self.storage.get_summarized_messages(conversation_id)
+        log_key_value("Messages Length", len(messages))
+        log_key_value("SUMMARIZED MESSAGES", summarized_messages)
         # Add new message if prompt provided
         if prompt:
             messages.append({"role": "user", "content": prompt})
@@ -459,6 +461,8 @@ class Client(ABC):
         try:
             # Convert messages to API format
             api_messages = [
+                self._convert_message_to_api_format(msg) for msg in summarized_messages
+            ] + [
                 self._convert_message_to_api_format(msg) for msg in messages
             ]
 
@@ -581,7 +585,7 @@ class Client(ABC):
                     tool_results.append(
                         {
                             "tool_call_id": tool_call["id"],
-                            "response": str(result),
+                            "response": json.dumps(result),  # Convert result to string
                         }
                     )
 
@@ -599,13 +603,11 @@ class Client(ABC):
                     tool_results.append(
                         {
                             "tool_call_id": tool_call["id"],
-                            "response": str(
-                                {
-                                    "success": False,
-                                    "message": str(e),
-                                    "data": None,
-                                }
-                            ),
+                            "response": json.dumps({
+                                "success": False,
+                                "message": str(e),
+                                "data": None,
+                            }),
                         }
                     )
 
@@ -616,5 +618,5 @@ class Client(ABC):
             response = send_message_with_retry(
                 self,
                 conversation_id=conversation_id,
-                tool_response=json.dumps(tool_results),
+                tool_response=json.dumps(tool_results),  # Convert to JSON only for API call
             )
