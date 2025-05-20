@@ -1,0 +1,27 @@
+Testing the Gemini Client
+=======================
+
+Before running the test script, please create a ".env" file in the project root with the following content:
+
+```
+# API Keys
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
+
+# Optional: Other API keys if needed for testing other clients
+# OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+# ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
+# XAI_API_KEY="YOUR_XAI_API_KEY"
+# OPENROUTER_API_KEY="YOUR_OPENROUTER_API_KEY"
+```
+
+Replace "YOUR_GEMINI_API_KEY_HERE" with your actual Google AI API key.
+
+You can obtain a Gemini API key from:
+https://ai.google.dev/tutorials/setup
+
+After setting up the .env file, run the test:
+
+```
+source venv/bin/activate  # Activate the virtual environment
+python3 test_gemini.py    # Run the test script
+``` 

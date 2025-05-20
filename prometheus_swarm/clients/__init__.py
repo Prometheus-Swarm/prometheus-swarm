@@ -7,6 +7,7 @@ from prometheus_swarm.clients.anthropic_client import AnthropicClient
 from prometheus_swarm.clients.xai_client import XAIClient
 from prometheus_swarm.clients.openai_client import OpenAIClient
 from prometheus_swarm.clients.openrouter_client import OpenRouterClient
+from prometheus_swarm.clients.gemini_client import GeminiClient
 
 
 # from prometheus_swarm.clients.ollama_client import OllamaClient
@@ -46,5 +47,6 @@ clients = {
     "xai": {"client": XAIClient, "api_key": "XAI_API_KEY"},
     "openai": {"client": OpenAIClient, "api_key": "OPENAI_API_KEY"},
     "openrouter": {"client": OpenRouterClient, "api_key": "OPENROUTER_API_KEY"},
+    "gemini": {"client": GeminiClient, "api_key": "GEMINI_API_KEY"},
     # "ollama": {"client": OllamaClient, "api_key": "N/A"},  # TODO: This is not correct
 }
