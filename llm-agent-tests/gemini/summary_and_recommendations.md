@@ -16,7 +16,8 @@ We've addressed the challenges with Gemini API tool calling by implementing:
    - Implemented bi-directional fallback (can revert to higher capability models for tool calls)
 
 3. **Testing Infrastructure**:
-   - Created test scripts for both clients
+   - Created comprehensive test scripts for various tool types
+   - Verified functionality across classification, file operations, and more complex tools
    - Implemented skipping when API keys aren't available
    - Added debug logging and detailed error handling
 
@@ -28,7 +29,7 @@ We've addressed the challenges with Gemini API tool calling by implementing:
 5. **Integration in prometheus-swarm**:
    - Added `FallbackGeminiClient` to the package
    - Updated the clients module to expose the new client
-   - Created a practical example showcasing how to use the fallback client
+   - Created practical examples showcasing how to use the fallback client
 
 ## Key Findings
 
@@ -37,12 +38,20 @@ We've addressed the challenges with Gemini API tool calling by implementing:
    - Even with retry logic, persistent rate limits occur with Pro models
    - Delays of 60+ seconds between retries are often needed
 
-2. **Model Capabilities**:
+2. **Model Capabilities and Tool Compatibility**:
    - Pro models: Most capable for tool calling but most susceptible to rate limits
-   - Flash models: Less likely to hit rate limits but less reliable for making tool calls
-   - Flash-lite models: Rarely make tool calls despite having the capability
+   - Flash models: Successfully execute simpler tools without rate limit issues
+   - Tool compatibility patterns:
+     - Simple classification tools (`classify_repository`, `classify_language`, etc.) work reliably across all models
+     - File operation tools (`list_files`, `read_file`) work well with Flash models
+     - Complex tools (like `review_file`) may require Pro models which our fallback logic correctly handles
 
-3. **Prompt Engineering**:
+3. **Fallback Mechanism Effectiveness**:
+   - Successfully falls back to less restricted models when rate limits are hit
+   - Correctly attempts to use more capable models when required for complex tools
+   - Bidirectional fallback works as designed, balancing capability and availability
+
+4. **Prompt Engineering**:
    - Explicit prompts dramatically improve tool calling reliability
    - Flash models require extremely explicit instructions to make tool calls
    - Emphasizing that tool use is required improves success rates
@@ -50,7 +59,7 @@ We've addressed the challenges with Gemini API tool calling by implementing:
 ## Recommendations
 
 1. **For Development Environments**:
-   - Use the `FallbackGeminiClient` with initial model set to `gemini-1.5-flash-latest`
+   - Use the `FallbackGeminiClient` with initial model set to `gemini-1.5-flash-latest` or `gemini-2.0-flash`
    - Configure `verify_tool_calls=True` to ensure tool calls are made
    - Use explicit prompts that clearly instruct the model to use tools
 
@@ -59,10 +68,10 @@ We've addressed the challenges with Gemini API tool calling by implementing:
    - Start with Pro models and fall back to Flash models when needed
    - Implement more sophisticated exponential backoff strategies
 
-3. **For Further Testing**:
-   - Test with newer Gemini models as they become available
-   - Explore multi-model strategies (using different models for different tasks)
-   - Consider Gemini 2.0 models as they mature out of preview
+3. **For Tool-Specific Optimizations**:
+   - For classification and file operation tools, start with Flash models
+   - For complex tools requiring deeper understanding, try to use Pro models with proper quota management
+   - Consider creating specific prompts templates for different tool types
 
 4. **Usage in prometheus-swarm**:
    ```python
@@ -79,11 +88,11 @@ We've addressed the challenges with Gemini API tool calling by implementing:
 5. **Future Enhancements**:
    - Add exponential backoff for retries
    - Implement token counting to optimize request size
-   - Create prompt templates optimized for tool calling
+   - Create prompt templates optimized for specific tool types
    - Add adaptive retry delay based on response patterns
 
 ## Conclusion
 
-The `FallbackGeminiClient` provides a robust solution for working with Gemini API's tool calling capabilities while mitigating rate limit issues. By intelligently switching between models, it balances the need for reliable tool calling with API availability.
+The `FallbackGeminiClient` provides a robust solution for working with Gemini API's tool calling capabilities while mitigating rate limit issues. Our extensive testing across multiple tool types confirms it works reliably in real-world scenarios.
 
-The implementation maintains the same interface as the standard `GeminiClient`, making it a drop-in replacement that handles the complexities of model fallback and tool call verification transparently. 
+By intelligently switching between models based on their capabilities and rate limits, the client successfully balances the need for reliable tool calling with API availability, ensuring the best possible experience across the entire spectrum of tools available in prometheus-swarm. 
