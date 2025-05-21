@@ -11,6 +11,7 @@ prometheus_swarm/clients/__init__.py
 prometheus_swarm/clients/anthropic_client.py
 prometheus_swarm/clients/base_client.py
 prometheus_swarm/clients/conversation_manager.py
+prometheus_swarm/clients/gemini_client.py
 prometheus_swarm/clients/localai_client.py
 prometheus_swarm/clients/ollama_client.py
 prometheus_swarm/clients/openai_client.py

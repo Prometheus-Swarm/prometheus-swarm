@@ -3,7 +3,9 @@
 from typing import Dict, Any, Optional, List, Union
 import json
 import ast
+import time # Added for retry delay
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted # Added for specific exception handling
 # Just import the types we know are available
 from google.generativeai.types import (
     GenerateContentResponse,
@@ -42,11 +44,16 @@ class GeminiClient(Client):
         api_key: str,
         model: Optional[str] = None,
         system_instruction: Optional[str] = None,
+        # Added retry config options
+        max_retries_on_exhaustion: int = 1,
+        retry_delay_seconds: int = 60,
         **kwargs,
     ):
         super().__init__(model=model, **kwargs)
         genai.configure(api_key=api_key)
         self.system_instruction = system_instruction
+        self.max_retries_on_exhaustion = max_retries_on_exhaustion
+        self.retry_delay_seconds = retry_delay_seconds
         self._initialize_model()
 
     def _initialize_model(self):
@@ -311,8 +318,9 @@ class GeminiClient(Client):
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        # Retry parameters are now taken from self
     ) -> Any:
-        """Make API call to Gemini."""
+        """Make API call to Gemini with retry logic for ResourceExhausted."""
         # Set up generation config
         generation_config_args = {}
         if max_tokens is not None:
@@ -334,29 +342,51 @@ class GeminiClient(Client):
                 model_name=self.model,
                 system_instruction=system_prompt
             )
-            
-        try:
-            # Make the API call
-            response = target_client.generate_content(
-                contents=messages,
-                tools=gemini_tools,
-                tool_config=tool_choice,
-                generation_config=final_generation_config
-            )
-            return response
-        except Exception as e:
-            # Handle common API errors
-            error_msg = str(e)
-            if "API_KEY_INVALID" in error_msg or "API_KEY_MISSING" in error_msg:
-                log_error(e, "Invalid or missing API key", include_traceback=False)
-                raise ClientAPIError(e)
-            elif "billing" in error_msg.lower():
-                log_error(e, "Billing account issue", include_traceback=False)
-                raise ClientAPIError(e)
-                
-            # Log and re-raise other errors
-            log_error(e, f"Error during Gemini API call to model {self.model}", include_traceback=True)
-            raise ClientAPIError(e)
+        
+        last_exception = None
+        for attempt in range(self.max_retries_on_exhaustion + 1):
+            try:
+                # Make the API call
+                response = target_client.generate_content(
+                    contents=messages,
+                    tools=gemini_tools,
+                    tool_config=tool_choice,
+                    generation_config=final_generation_config
+                )
+                return response
+            except ResourceExhausted as re:
+                last_exception = re
+                if attempt < self.max_retries_on_exhaustion:
+                    log_key_value(
+                        f"Gemini API ResourceExhausted (Attempt {attempt + 1}/{self.max_retries_on_exhaustion + 1}). Retrying in {self.retry_delay_seconds}s...",
+                        self.model,
+                        "GeminiClient"
+                    )
+                    time.sleep(self.retry_delay_seconds)
+                    # continue # This was an error in my previous thought, continue is implicit here.
+                else:
+                    log_error(re, f"Gemini API ResourceExhausted after {self.max_retries_on_exhaustion + 1} attempts for model {self.model}", include_traceback=False)
+                    raise ClientAPIError(re) from re
+            except Exception as e:
+                # Handle common API errors
+                error_msg = str(e)
+                if "API_KEY_INVALID" in error_msg or "API_KEY_MISSING" in error_msg:
+                    log_error(e, "Invalid or missing API key", include_traceback=False)
+                    raise ClientAPIError(e) from e
+                elif "billing" in error_msg.lower():
+                    log_error(e, "Billing account issue", include_traceback=False)
+                    raise ClientAPIError(e) from e
+                    
+                # Log and re-raise other errors
+                log_error(e, f"Unexpected error during Gemini API call to model {self.model}", include_traceback=True)
+                raise ClientAPIError(e) from e
+        
+        # Fallback if loop finishes, should be covered by exception raising above
+        if last_exception:
+            raise ClientAPIError(last_exception) from last_exception
+        # This line indicates a flaw in the loop logic if ever reached.
+        raise ClientAPIError(Exception("Exited retry loop unexpectedly in _make_api_call without returning or raising a specific exception"))
+
 
     def _format_tool_response(self, response_str: str) -> MessageContent:
         """Format a tool execution result into our MessageContent format."""

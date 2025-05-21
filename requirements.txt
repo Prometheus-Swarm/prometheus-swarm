@@ -20,3 +20,4 @@ pymongo>=4.11.0
 PyNaCl>=1.5.0
 google-generativeai>=0.5.0
 SQLAlchemy>=1.4.0
+langchain_google_genai>=0.0.1
