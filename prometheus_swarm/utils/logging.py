@@ -32,6 +32,9 @@ _external_logging_hook: Optional[
     Callable[[str, str, Optional[str], Optional[str], Optional[str]], None]
 ] = None
 
+# Optional conversation hook
+_conversation_hook: Optional[Callable[[str, str, Any, str], None]] = None
+
 task_id_var = contextvars.ContextVar("task_id", default=None)
 swarm_bounty_id_var = contextvars.ContextVar("swarm_bounty_id", default=None)
 signature_var = contextvars.ContextVar("signature", default=None)
@@ -101,6 +104,18 @@ def set_logs_post_hook(
     """Register an external hook to post logs to a server."""
     global _external_logging_hook
     _external_logging_hook = hook
+
+
+def set_conversation_hook(
+    hook: Callable[[str, str, Any, str], None],
+):
+    """Register an external hook to record conversations.
+
+    Args:
+        hook: Function that takes (conversation_id, role, content, model)
+    """
+    global _conversation_hook
+    _conversation_hook = hook
 
 
 def _post_log(level: str, message: str):
@@ -180,6 +195,7 @@ def log_value(value: str, logToServer: bool = True) -> None:
     if logToServer:
         _post_log("INFO", msg)
 
+
 def log_dict(data: dict, prefix: str = "") -> None:
     """Log a dictionary with consistent formatting."""
     for key, value in data.items():
@@ -228,7 +244,10 @@ def log_tool_result(result: Any) -> None:
 
 
 def log_error(
-    error: Exception, context: str = "", include_traceback: bool = True, logToServer: bool = True
+    error: Exception,
+    context: str = "",
+    include_traceback: bool = True,
+    logToServer: bool = True,
 ) -> None:
     """Log an error with consistent formatting and optional stack trace."""
     if not _logging_configured:
@@ -345,3 +364,12 @@ def log_tool_response(response_str: str, tool_use_id: str = None) -> None:
     except (ValueError, SyntaxError):
         # If not a valid Python literal, log as formatted string
         logger.info(format_value(response_str))
+
+
+def record_conversation(conversation_id: str, role: str, content: Any, model: str):
+    """Record a conversation message using the external hook if configured."""
+    if _conversation_hook:
+        try:
+            _conversation_hook(conversation_id, role, content, model)
+        except Exception as e:
+            logger.warning(f"Failed to record conversation via hook: {e}")
