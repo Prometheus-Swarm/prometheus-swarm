@@ -3,7 +3,7 @@
 import logging
 import sys
 import traceback
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Dict
 from pathlib import Path
 from functools import wraps
 import ast
@@ -33,11 +33,15 @@ _external_logging_hook: Optional[
 ] = None
 
 # Optional conversation hook
-_conversation_hook: Optional[Callable[[str, str, Any, str], None]] = None
+_conversation_hook: Optional[Callable[[str, str, Any, str, Dict[str, Any]], None]] = (
+    None
+)
 
+# Context variables
 task_id_var = contextvars.ContextVar("task_id", default=None)
 swarm_bounty_id_var = contextvars.ContextVar("swarm_bounty_id", default=None)
 signature_var = contextvars.ContextVar("signature", default=None)
+conversation_context_var = contextvars.ContextVar("conversation_context", default={})
 
 
 class SectionFormatter(logging.Formatter):
@@ -106,13 +110,25 @@ def set_logs_post_hook(
     _external_logging_hook = hook
 
 
+def set_conversation_context(context: Dict[str, Any]) -> None:
+    """Set the conversation context that will be passed to the conversation hook.
+
+    Args:
+        context: Dictionary of context data to pass to the conversation hook.
+               This can include any additional fields needed by the hook.
+    """
+    current = conversation_context_var.get()
+    conversation_context_var.set({**current, **context})
+
+
 def set_conversation_hook(
-    hook: Callable[[str, str, Any, str], None],
+    hook: Callable[[str, str, Any, str, Dict[str, Any]], None],
 ):
     """Register an external hook to record conversations.
 
     Args:
-        hook: Function that takes (conversation_id, role, content, model)
+        hook: Function that takes (conversation_id, role, content, model, context)
+             where context contains additional data to include in the log
     """
     global _conversation_hook
     _conversation_hook = hook
@@ -367,9 +383,17 @@ def log_tool_response(response_str: str, tool_use_id: str = None) -> None:
 
 
 def record_conversation(conversation_id: str, role: str, content: Any, model: str):
-    """Record a conversation message using the external hook if configured."""
+    """Record a conversation message using the registered hook if available.
+
+    Args:
+        conversation_id: Unique identifier for the conversation
+        role: Role of the message sender (e.g. "user", "assistant")
+        content: Content of the message
+        model: Model used for the conversation
+    """
     if _conversation_hook:
         try:
-            _conversation_hook(conversation_id, role, content, model)
+            context = conversation_context_var.get()
+            _conversation_hook(conversation_id, role, content, model, context)
         except Exception as e:
-            logger.warning(f"Failed to record conversation via hook: {e}")
+            logger.warning(f"Failed to record conversation: {e}")
