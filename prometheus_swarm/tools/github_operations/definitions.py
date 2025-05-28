@@ -57,17 +57,29 @@ DEFINITIONS = {
         "parameters": {
             "type": "object",
             "properties": {
-                "title": {"type": "string", "description": "Title of the pull request"},
+                "repo_full_name": {
+                    "type": "string",
+                    "description": "Full name of repository (owner/repo)"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the pull request"
+                },
+                "head": {
+                    "type": "string",
+                    "description": "Head branch name"
+                },
                 "description": {
                     "type": "string",
-                    "description": "A brief summary of the changes made",
+                    "description": "A brief summary of the changes made"
                 },
-                "github_token": {
+                "base": {
                     "type": "string",
-                    "description": "GitHub token for authentication",
-                },
+                    "description": "Base branch name (default: main)",
+                    "default": "main"
+                }
             },
-            "required": ["title", "description", "github_token"],
+            "required": ["repo_full_name", "title", "head", "description"]
         },
         "final_tool": True,
         "function": create_pull_request_legacy,

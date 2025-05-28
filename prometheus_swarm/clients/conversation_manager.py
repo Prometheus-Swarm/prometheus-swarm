@@ -93,12 +93,12 @@ class ConversationManager:
             ]
 
             MESSAGE_THRESHOLD = 50
-            log_key_value("MESSAGES", messages)
+            log_key_value("Current Messages Number", len(messages))
             
             # Check if we should summarize
             if client and self._should_summarize(messages, MESSAGE_THRESHOLD):
                 # Get the last threshold messages
-                log_key_value("SUMMARIZING", messages)
+                log_key_value("Should Summarize", True)
                 last_messages = messages[-MESSAGE_THRESHOLD:]
                 # Create new summarized message and wait for it to complete
                 try:
@@ -141,10 +141,7 @@ class ConversationManager:
             messages: List of messages to consolidate
             client: Optional LLM client to use for summarization
         """
-        log_section("SUMMARIZATION PROCESS")
-        log_key_value("Conversation ID", conversation_id)
-        log_key_value("Number of Messages", len(messages))
-        log_key_value("Has Client", bool(client))
+        log_section("Summarizing", conversation_id, "messages", len(messages), "client", bool(client))
         
         with get_session() as session:
             conversation = session.get(Conversation, conversation_id)
