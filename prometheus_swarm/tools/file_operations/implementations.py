@@ -367,6 +367,70 @@ def list_files(directory: str, **kwargs) -> ToolOutput:
         }
 
 
+def list_directory_contents(directory: str, **kwargs) -> ToolOutput:
+    """
+    Return a list of files and directories in the specified directory (no subdirectories),
+    excluding .git directory and node_modules directory. For files, includes their line count.
+
+    Parameters:
+    directory (str or Path): The directory to list contents from.
+
+    Returns:
+        ToolOutput: A dictionary containing:
+            - success (bool): Whether the operation succeeded
+            - message (str): A human readable message
+            - data (dict): Dictionary containing lists of files and directories if successful
+    """
+    try:
+        directory = _normalize_path(directory)
+        directory = Path(os.getcwd()) / directory
+
+        if not directory.exists():
+            return {
+                "success": False,
+                "message": f"Directory does not exist: {directory}",
+                "data": None,
+            }
+
+        if not directory.is_dir():
+            return {
+                "success": False,
+                "message": f"Path exists but is not a directory: {directory}",
+                "data": None,
+            }
+
+        # List files and directories in current directory
+        files = []
+        directories = []
+        for item in directory.iterdir():
+            if item.is_file():
+                try:
+                    with open(item, 'r', encoding='utf-8') as f:
+                        line_count = sum(1 for _ in f)
+                    files.append({"name": item.name, "lines": line_count})
+                except Exception:
+                    # If we can't read the file, just add it without line count
+                    files.append({"name": item.name, "lines": None})
+            elif item.is_dir():
+                directories.append(item.name)
+
+        return {
+            "success": True,
+            "message": f"Found {len(files)} files and {len(directories)} directories in {directory}",
+            "data": {
+                "files": sorted(files, key=lambda x: x["name"]),
+                "directories": sorted(directories)
+            },
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error listing directory contents: {str(e)}",
+            "data": None,
+        }
+
+
 def create_directory(path: str, **kwargs) -> ToolOutput:
     """Create a directory and any necessary parent directories.
 

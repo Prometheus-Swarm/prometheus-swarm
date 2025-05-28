@@ -14,6 +14,7 @@ class Conversation(SQLModel, table=True):
     available_tools: Optional[str] = None  # JSON list of tool names
     created_at: datetime = Field(default_factory=datetime.utcnow)
     messages: List["Message"] = Relationship(back_populates="conversation")
+    summarized_messages: List["SummarizedMessage"] = Relationship(back_populates="conversation")
 
 
 class Message(SQLModel, table=True):
@@ -26,6 +27,15 @@ class Message(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     conversation: Conversation = Relationship(back_populates="messages")
 
+class SummarizedMessage(SQLModel, table=True):
+    """Summarized message model."""
+
+    id: str = Field(primary_key=True)
+    conversation_id: str = Field(foreign_key="conversation.id")
+    role: str = Field(default="system")  # Always system for consolidated messages
+    content: str  # JSON-encoded content containing the summary
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    conversation: Conversation = Relationship(back_populates="summarized_messages")
 
 class Log(SQLModel, table=True):
     """Log entry model."""

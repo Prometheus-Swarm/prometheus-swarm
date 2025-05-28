@@ -184,7 +184,7 @@ class WorkflowPhase:
     def _parse_result(self, tool_response: ToolResponse) -> PhaseResult:
         """Parse raw API response into standardized format"""
         try:
-            response_data = ast.literal_eval(tool_response.get("response", "{}"))
+            response_data = json.loads(tool_response.get("response", "{}"))
             return PhaseResult(
                 success=response_data.get("success", False),
                 data=response_data.get("data", {}),
@@ -198,7 +198,7 @@ class WorkflowPhase:
             return PhaseResult(
                 success=False,
                 data={},
-                error=f"Failed to parse response: {str(e)}",
+                error=f"Failed to parse response: {str(e)}, {tool_response}",
             )
 
     def execute(self):
