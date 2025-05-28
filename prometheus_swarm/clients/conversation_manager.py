@@ -13,6 +13,7 @@ from prometheus_swarm.database.models import SummarizedMessage
 from datetime import datetime
 
 from prometheus_swarm.utils.logging import log_key_value, log_section, log_error
+from prometheus_swarm.utils.logging import record_conversation
 
 
 class ConversationManager:
@@ -251,6 +252,9 @@ class ConversationManager:
             )
             session.add(message)
             session.commit()
+
+            # Record via hook if configured
+            record_conversation(conversation_id, role, content, conversation.model)
 
     def update_tools(
         self, conversation_id: str, available_tools: Optional[List[str]] = None

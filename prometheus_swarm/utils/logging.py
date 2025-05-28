@@ -3,11 +3,12 @@
 import logging
 import sys
 import traceback
-from typing import Any
+from typing import Any, Callable, Optional, Dict
 from pathlib import Path
 from functools import wraps
 import ast
 from colorama import init, Fore, Style
+import contextvars
 
 # Initialize colorama for cross-platform color support
 init(strip=False)  # Force color output even when not in a terminal
@@ -20,6 +21,27 @@ logger.propagate = False
 
 # Track if logging has been configured
 _logging_configured = False
+
+# Optional external error hook
+_external_error_logging_hook: Optional[
+    Callable[[Exception, str, str, Optional[str], Optional[str], Optional[str]], None]
+] = None
+
+# Optional external logging hook
+_external_logging_hook: Optional[
+    Callable[[str, str, Optional[str], Optional[str], Optional[str]], None]
+] = None
+
+# Optional conversation hook
+_conversation_hook: Optional[Callable[[str, str, Any, str, Dict[str, Any]], None]] = (
+    None
+)
+
+# Context variables
+task_id_var = contextvars.ContextVar("task_id", default=None)
+swarm_bounty_id_var = contextvars.ContextVar("swarm_bounty_id", default=None)
+signature_var = contextvars.ContextVar("signature", default=None)
+conversation_context_var = contextvars.ContextVar("conversation_context", default={})
 
 
 class SectionFormatter(logging.Formatter):
@@ -70,6 +92,62 @@ class SectionFormatter(logging.Formatter):
         return formatted_msg
 
 
+def set_error_post_hook(
+    hook: Callable[
+        [Exception, str, str, Optional[str], Optional[str], Optional[str]], None
+    ],
+):
+    """Register an external hook to post errors to a server."""
+    global _external_error_logging_hook
+    _external_error_logging_hook = hook
+
+
+def set_logs_post_hook(
+    hook: Callable[[str, str, Optional[str], Optional[str], Optional[str]], None],
+):
+    """Register an external hook to post logs to a server."""
+    global _external_logging_hook
+    _external_logging_hook = hook
+
+
+def set_conversation_context(context: Dict[str, Any]) -> None:
+    """Set the conversation context that will be passed to the conversation hook.
+
+    Args:
+        context: Dictionary of context data to pass to the conversation hook.
+               This can include any additional fields needed by the hook.
+    """
+    current = conversation_context_var.get()
+    conversation_context_var.set({**current, **context})
+
+
+def set_conversation_hook(
+    hook: Callable[[str, str, Any, str, Dict[str, Any]], None],
+):
+    """Register an external hook to record conversations.
+
+    Args:
+        hook: Function that takes (conversation_id, role, content, model, context)
+             where context contains additional data to include in the log
+    """
+    global _conversation_hook
+    _conversation_hook = hook
+
+
+def _post_log(level: str, message: str):
+    if _external_logging_hook:
+        try:
+            _external_logging_hook(
+                logLevel=level,
+                message=message,
+                task_id=task_id_var.get(),
+                swarm_bounty_id=swarm_bounty_id_var.get(),
+                signature=signature_var.get(),
+            )
+        except Exception as post_error:
+            logger.warning(f"Failed to send log to external hook: {post_error}")
+
+
 def configure_logging():
     """Configure logging for the application."""
     global _logging_configured
@@ -104,25 +182,34 @@ def format_value(value: Any) -> str:
     return str(value)
 
 
-def log_section(name: str) -> None:
+def log_section(name: str, logToServer: bool = True) -> None:
     """Log a section header with consistent formatting."""
     if not _logging_configured:
         configure_logging()
-    logger.info(f"\n=== {name.upper()} ===")
+    msg = f"\n=== {name.upper()} ==="
+    logger.info(msg)
+    if logToServer:
+        _post_log("INFO", msg)
 
 
-def log_key_value(key: str, value: Any) -> None:
+def log_key_value(key: str, value: Any, logToServer: bool = True) -> None:
     """Log a key-value pair with consistent formatting."""
     if not _logging_configured:
         configure_logging()
-    logger.info(f"{key}: {format_value(value)}")
+    msg = f"{key}: {format_value(value)}"
+    logger.info(msg)
+    if logToServer:
+        _post_log("INFO", msg)
 
 
-def log_value(value: str) -> None:
+def log_value(value: str, logToServer: bool = True) -> None:
     """Log a value with consistent formatting."""
     if not _logging_configured:
         configure_logging()
-    logger.info(format_value(value))
+    msg = format_value(value)
+    logger.info(msg)
+    if logToServer:
+        _post_log("INFO", msg)
 
 
 def log_dict(data: dict, prefix: str = "") -> None:
@@ -173,7 +260,10 @@ def log_tool_result(result: Any) -> None:
 
 
 def log_error(
-    error: Exception, context: str = "", include_traceback: bool = True
+    error: Exception,
+    context: str = "",
+    include_traceback: bool = True,
+    logToServer: bool = True,
 ) -> None:
     """Log an error with consistent formatting and optional stack trace."""
     if not _logging_configured:
@@ -184,6 +274,22 @@ def log_error(
         logger.info("Stack trace:")
         for line in traceback.format_tb(error.__traceback__):
             logger.info(line.rstrip())
+    # External posting if configured
+    if _external_error_logging_hook and logToServer:
+        stack_trace = ""
+        if include_traceback and error.__traceback__:
+            stack_trace = "".join(traceback.format_tb(error.__traceback__))
+        try:
+            _external_error_logging_hook(
+                error,
+                context or "ERROR",
+                stack_trace,
+                task_id=task_id_var.get(),
+                swarm_bounty_id=swarm_bounty_id_var.get(),
+                signature=signature_var.get(),
+            )
+        except Exception as post_error:
+            logger.warning(f"Failed to send error to external hook: {post_error}")
 
 
 def log_execution_time(func):
@@ -274,3 +380,20 @@ def log_tool_response(response_str: str, tool_use_id: str = None) -> None:
     except (ValueError, SyntaxError):
         # If not a valid Python literal, log as formatted string
         logger.info(format_value(response_str))
+
+
+def record_conversation(conversation_id: str, role: str, content: Any, model: str):
+    """Record a conversation message using the registered hook if available.
+
+    Args:
+        conversation_id: Unique identifier for the conversation
+        role: Role of the message sender (e.g. "user", "assistant")
+        content: Content of the message
+        model: Model used for the conversation
+    """
+    if _conversation_hook:
+        try:
+            context = conversation_context_var.get()
+            _conversation_hook(conversation_id, role, content, model, context)
+        except Exception as e:
+            logger.warning(f"Failed to record conversation: {e}")

@@ -46,11 +46,16 @@ def with_retry(
                 include_traceback=False,
             )
 
+        def after_handler(retry_state):
+            # Reset flag after retries complete (success or failure)
+            retry_flag["is_retry"] = False
+
         @retry(
             retry=retry_if_exception_type(ClientAPIError),
             stop=stop_after_attempt(max_attempts),
             wait=wait_exponential(multiplier=base_delay, max=max_delay),
             before_sleep=before_sleep_handler,
+            after=after_handler,
             reraise=True,
         )
         def wrapper(*args, **kwargs):
