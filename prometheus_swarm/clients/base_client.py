@@ -421,8 +421,7 @@ class Client(ABC):
         # Get conversation history
         messages = self.storage.get_messages(conversation_id, client=self)
         summarized_messages = self.storage.get_summarized_messages(conversation_id)
-        log_key_value("Messages Length", len(messages))
-        log_key_value("SUMMARIZED MESSAGES", summarized_messages)
+        log_key_value("Summarized Messages", summarized_messages)
         # Add new message if prompt provided
         if prompt:
             messages.append({"role": "user", "content": prompt})
