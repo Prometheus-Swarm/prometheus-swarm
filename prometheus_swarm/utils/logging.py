@@ -24,22 +24,36 @@ _logging_configured = False
 
 # Optional external error hook
 _external_error_logging_hook: Optional[
-    Callable[[Exception, str, str, Optional[str], Optional[str], Optional[str]], None]
+    Callable[
+        [
+            Exception,
+            str,
+            str,
+            Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[str],
+        ],
+        None,
+    ]
 ] = None
 
 # Optional external logging hook
 _external_logging_hook: Optional[
-    Callable[[str, str, Optional[str], Optional[str], Optional[str]], None]
+    Callable[
+        [str, str, Optional[str], Optional[str], Optional[str], Optional[str]], None
+    ]
 ] = None
 
 # Optional conversation hook
-_conversation_hook: Optional[Callable[[str, str, Any, str, Dict[str, Any]], None]] = (
-    None
-)
+_conversation_hook: Optional[
+    Callable[[str, str, Any, str, Dict[str, Any], str], None]
+] = None
 
 # Context variables
 task_id_var = contextvars.ContextVar("task_id", default=None)
 swarm_bounty_id_var = contextvars.ContextVar("swarm_bounty_id", default=None)
+todo_uuid_var = contextvars.ContextVar("todo_uuid", default=None)
 signature_var = contextvars.ContextVar("signature", default=None)
 conversation_context_var = contextvars.ContextVar("conversation_context", default={})
 
@@ -94,7 +108,16 @@ class SectionFormatter(logging.Formatter):
 
 def set_error_post_hook(
     hook: Callable[
-        [Exception, str, str, Optional[str], Optional[str], Optional[str]], None
+        [
+            Exception,
+            str,
+            str,
+            Optional[str],
+            Optional[str],
+            Optional[str],
+            Optional[str],
+        ],
+        None,
     ],
 ):
     """Register an external hook to post errors to a server."""
@@ -103,7 +126,9 @@ def set_error_post_hook(
 
 
 def set_logs_post_hook(
-    hook: Callable[[str, str, Optional[str], Optional[str], Optional[str]], None],
+    hook: Callable[
+        [str, str, Optional[str], Optional[str], Optional[str], Optional[str]], None
+    ],
 ):
     """Register an external hook to post logs to a server."""
     global _external_logging_hook
@@ -122,7 +147,7 @@ def set_conversation_context(context: Dict[str, Any]) -> None:
 
 
 def set_conversation_hook(
-    hook: Callable[[str, str, Any, str, Dict[str, Any]], None],
+    hook: Callable[[str, str, Any, str, Dict[str, Any], str], None],
 ):
     """Register an external hook to record conversations.
 
@@ -143,6 +168,7 @@ def _post_log(level: str, message: str):
                 task_id=task_id_var.get(),
                 swarm_bounty_id=swarm_bounty_id_var.get(),
                 signature=signature_var.get(),
+                todo_uuid=todo_uuid_var.get(),
             )
         except Exception as post_error:
             logger.warning(f"Failed to send log to external hook: {post_error}")
@@ -287,6 +313,7 @@ def log_error(
                 task_id=task_id_var.get(),
                 swarm_bounty_id=swarm_bounty_id_var.get(),
                 signature=signature_var.get(),
+                todo_uuid=todo_uuid_var.get(),
             )
         except Exception as post_error:
             logger.warning(f"Failed to send error to external hook: {post_error}")
@@ -394,6 +421,8 @@ def record_conversation(conversation_id: str, role: str, content: Any, model: st
     if _conversation_hook:
         try:
             context = conversation_context_var.get()
-            _conversation_hook(conversation_id, role, content, model, context)
+            _conversation_hook(
+                conversation_id, role, content, model, context, todo_uuid_var.get()
+            )
         except Exception as e:
             logger.warning(f"Failed to record conversation: {e}")
