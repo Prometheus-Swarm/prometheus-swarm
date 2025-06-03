@@ -55,6 +55,7 @@ prometheus_swarm/utils/errors.py
 prometheus_swarm/utils/logging.py
 prometheus_swarm/utils/retry.py
 prometheus_swarm/utils/signatures.py
+prometheus_swarm/utils/tools.py
 prometheus_swarm/workflows/__init__.py
 prometheus_swarm/workflows/base.py
 prometheus_swarm/workflows/utils.py

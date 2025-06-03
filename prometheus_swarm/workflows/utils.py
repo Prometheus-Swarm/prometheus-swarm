@@ -130,6 +130,10 @@ def setup_repository(
             fork_owner = repo_owner
             fork_name = repo_name
 
+        project_root = os.path.abspath(os.path.join(__file__, "../../.."))
+        log_key_value("PROJECT ROOT", project_root)
+        os.chdir(project_root)
+        
         # Generate sequential repo path
         base_dir = os.path.abspath("./repos")
         os.makedirs(base_dir, exist_ok=True)
