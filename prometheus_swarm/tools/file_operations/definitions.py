@@ -1,4 +1,5 @@
 from prometheus_swarm.tools.file_operations.implementations import (
+    list_directory_contents,
     read_file,
     write_file,
     copy_file,
@@ -153,5 +154,20 @@ DEFINITIONS = {
             "required": ["directory"],
         },
         "function": list_files,
+    },
+    "list_directory_contents": {
+        "name": "list_directory_contents",
+        "description": "List all files and directories in the current layer.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "directory": {
+                    "type": "string",
+                    "description": "Directory to list files from",
+                },
+            },
+            "required": ["directory"],
+        },
+        "function": list_directory_contents,
     },
 }
