@@ -93,7 +93,7 @@ class ConversationManager:
                 for msg in conversation.messages
             ]
 
-            MESSAGE_THRESHOLD = 50
+            MESSAGE_THRESHOLD = 500
             log_key_value("Current Messages Number", len(messages))
             
             # Check if we should summarize
