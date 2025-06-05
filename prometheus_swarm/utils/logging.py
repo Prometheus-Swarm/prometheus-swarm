@@ -214,8 +214,8 @@ def log_section(name: str, logToServer: bool = True) -> None:
         configure_logging()
     msg = f"\n=== {name.upper()} ==="
     logger.info(msg)
-    if logToServer:
-        _post_log("INFO", msg)
+    # if logToServer:
+    #     _post_log("INFO", msg)
 
 
 def log_key_value(key: str, value: Any, logToServer: bool = True) -> None:
@@ -224,8 +224,8 @@ def log_key_value(key: str, value: Any, logToServer: bool = True) -> None:
         configure_logging()
     msg = f"{key}: {format_value(value)}"
     logger.info(msg)
-    if logToServer:
-        _post_log("INFO", msg)
+    # if logToServer:
+    #     _post_log("INFO", msg)
 
 
 def log_value(value: str, logToServer: bool = True) -> None:
@@ -234,8 +234,8 @@ def log_value(value: str, logToServer: bool = True) -> None:
         configure_logging()
     msg = format_value(value)
     logger.info(msg)
-    if logToServer:
-        _post_log("INFO", msg)
+    # if logToServer:
+    #     _post_log("INFO", msg)
 
 
 def log_dict(data: dict, prefix: str = "") -> None:
